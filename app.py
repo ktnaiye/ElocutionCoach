@@ -156,6 +156,19 @@ def render_result(result) -> None:
         m4.metric("On topic", d.topic_connection)
         m5.metric("Focus skill", d.focus_skill)
 
+    if result.overall_reason:
+        st.caption(result.overall_reason)
+
+    st.markdown("#### Score breakdown — why")
+    breakdown = result.dimension_breakdown or []
+    if breakdown:
+        # Show weakest dimensions first so the learner knows what to practise.
+        ordered = sorted(breakdown, key=lambda item: (item.score, item.label))
+        for item in ordered:
+            st.markdown(f"**{item.label} — {item.score}/10**  \n{item.reason}")
+    else:
+        st.caption("Detailed reasons were not available for this round.")
+
     st.markdown("#### Areas to improve")
     for item in result.improvements:
         st.markdown(f"- {item}")

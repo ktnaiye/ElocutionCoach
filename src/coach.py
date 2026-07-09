@@ -8,7 +8,12 @@ import os
 import re
 from typing import Any
 
-from .scoring import CoachingResult, DimensionScores, score_transcript
+from .scoring import (
+    CoachingResult,
+    DimensionScores,
+    build_breakdown,
+    score_transcript,
+)
 from .topics import FocusSkill
 
 try:
@@ -68,6 +73,37 @@ def _extract_json(text: str) -> dict:
         return json.loads(match.group(0))
 
 
+def _reason_map(data: dict, dims: DimensionScores, skill: FocusSkill) -> dict[str, str]:
+    raw = data.get("dimension_reasons") or data.get("reasons") or {}
+    defaults = {
+        "clarity": (
+            f"Clarity {dims.clarity}/10 — based on how easy the ideas were to follow "
+            "in spoken English (sentence length, one idea at a time)."
+        ),
+        "structure": (
+            f"Structure {dims.structure}/10 — based on whether there was a clear open, "
+            "developed middle, and memorable close."
+        ),
+        "pace_and_fillers": (
+            f"Pace/fillers {dims.pace_and_fillers}/10 — based on filler words, hedges, "
+            "and whether pauses replaced padding."
+        ),
+        "topic_connection": (
+            f"On topic {dims.topic_connection}/10 — based on how directly the talk "
+            "answered the practice prompt."
+        ),
+        "focus_skill": (
+            f"Focus skill ({skill.name}) {dims.focus_skill}/10 — based on how clearly "
+            f"the tip for {skill.name.lower()} showed up in the talk."
+        ),
+    }
+    reasons: dict[str, str] = {}
+    for key, fallback in defaults.items():
+        value = raw.get(key) if isinstance(raw, dict) else None
+        reasons[key] = str(value).strip() if value else fallback
+    return reasons
+
+
 def _parse_ai_result(data: dict, skill: FocusSkill) -> CoachingResult:
     dims_raw = data.get("dimensions") or {}
     dims = DimensionScores(
@@ -96,14 +132,22 @@ def _parse_ai_result(data: dict, skill: FocusSkill) -> CoachingResult:
             )
             / 5
         )
+    overall = max(1, min(10, int(overall)))
+    reasons = _reason_map(data, dims, skill)
+    overall_reason = str(data.get("overall_reason") or "").strip() or (
+        f"Overall {overall}/10 averages the five dimensions. "
+        "Raise the lowest scores first for the fastest improvement."
+    )
 
     return CoachingResult(
-        overall=max(1, min(10, int(overall))),
+        overall=overall,
         dimensions=dims,
         improvements=improvements,
         rewrite_tip=str(data.get("rewrite_tip") or "Open with your main point in one crisp sentence."),
         source="openai",
         notes=[str(n) for n in (data.get("notes") or [])][:5],
+        dimension_breakdown=build_breakdown(dims, reasons),
+        overall_reason=overall_reason,
     )
 
 
@@ -111,15 +155,24 @@ SYSTEM_PROMPT = """You are an encouraging elocution and communication coach for 
 Score spoken English practice for clarity, structure, pace/filler awareness, connection to the topic, and application of a focus skill.
 Draw on well-known public communication principles (e.g. simplicity, connecting with the audience, storytelling, conviction, preparation) — paraphrase; do not quote copyrighted books.
 Be constructive, specific, and kind. Do not shame accents. Suggest British English phrasing only when it improves clarity or naturalness.
+For every dimension score, explain WHY in one or two concrete sentences that cite what you heard (or did not hear) in the transcript. Mention examples from the speaker's words when useful.
 Return ONLY valid JSON with this shape:
 {
   "overall": 1-10,
+  "overall_reason": "One or two sentences explaining how the overall score was formed and what to prioritise.",
   "dimensions": {
     "clarity": 1-10,
     "structure": 1-10,
     "pace_and_fillers": 1-10,
     "topic_connection": 1-10,
     "focus_skill": 1-10
+  },
+  "dimension_reasons": {
+    "clarity": "Why this clarity score — cite sentence length, density, or wording.",
+    "structure": "Why this structure score — cite open/body/close or signposts.",
+    "pace_and_fillers": "Why this pace score — cite fillers, hedges, or rushing.",
+    "topic_connection": "Why this topic score — cite how directly the prompt was answered.",
+    "focus_skill": "Why this focus-skill score — cite evidence of the named skill."
   },
   "improvements": ["...", "...", "..."],
   "rewrite_tip": "One stronger opening or closing line the speaker could try.",
