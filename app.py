@@ -100,6 +100,8 @@ def init_state() -> None:
         st.session_state.last_result = None
     if "transcript" not in st.session_state:
         st.session_state.transcript = ""
+    if "practice_id" not in st.session_state:
+        st.session_state.practice_id = 0
 
 
 def new_practice() -> None:
@@ -108,6 +110,7 @@ def new_practice() -> None:
     st.session_state.skill = skill
     st.session_state.last_result = None
     st.session_state.transcript = ""
+    st.session_state.practice_id += 1
 
 
 def render_header() -> None:
@@ -186,15 +189,19 @@ def main() -> None:
 
     st.markdown("Speak for about **1–2 minutes**. Record below, or paste a transcript.")
 
+    practice_id = st.session_state.practice_id
+    audio_key = f"practice_audio_{practice_id}"
+    transcript_key = f"practice_transcript_{practice_id}"
+
     audio = None
     if hasattr(st, "audio_input"):
-        audio = st.audio_input("Record your practice")
+        audio = st.audio_input("Record your practice", key=audio_key)
     else:
         st.warning("This Streamlit version has no audio input — paste a transcript instead.")
 
     transcript_input = st.text_area(
         "Or paste your transcript",
-        value=st.session_state.transcript,
+        key=transcript_key,
         height=140,
         placeholder="Paste what you said here if you prefer typing, or after recording…",
     )
