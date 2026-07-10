@@ -19,7 +19,7 @@ from src.history import make_history_entry
 from src.topics import FocusSkill, pick_practice
 
 st.set_page_config(
-    page_title="Elocution Coach",
+    page_title="Elocution Coach By Grace",
     page_icon="🎙️",
     layout="centered",
     initial_sidebar_state="collapsed",
