@@ -109,9 +109,37 @@ TOPICS: list[str] = [
     "Is confidence the same as competence?",
     "Talk about a mentor who improved how you communicate.",
     "If you could give one speech to the whole country, what would it be about?",
+    # Leadership and relationships
+    "What makes someone a trustworthy leader?",
+    "Describe how to disagree with someone respectfully.",
+    "Is listening more important than speaking well?",
+    "How can a manager give difficult feedback constructively?",
+    "What is the best way to apologise after a misunderstanding?",
+    "Should leaders admit when they do not know the answer?",
+    "Describe a conversation that strengthened a relationship.",
+    "How can people communicate better across different cultures?",
+    "What makes advice helpful rather than intrusive?",
+    "How would you encourage someone who has lost confidence?",
+    # Ideas, learning, and society
+    "Should adults continue studying throughout their careers?",
+    "What is one technology you could happily live without?",
+    "Is curiosity more valuable than intelligence?",
+    "Should everyone spend some time living abroad?",
+    "What makes a neighbourhood feel like a community?",
+    "Does convenience always improve our lives?",
+    "What is one everyday problem you would like to solve?",
+    "Should museums and galleries be free to visit?",
+    "What lesson should every young adult learn before leaving school?",
+    "How can we become better at changing our minds?",
 ]
 
 
-def pick_practice() -> tuple[str, FocusSkill]:
-    """Return a random topic and focus skill for one practice round."""
-    return random.choice(TOPICS), random.choice(FOCUS_SKILLS)
+def pick_practice(
+    excluded_topics: set[str] | None = None,
+) -> tuple[str, FocusSkill]:
+    """Return a random unused topic and focus skill for one practice round."""
+    excluded_topics = excluded_topics or set()
+    available_topics = [topic for topic in TOPICS if topic not in excluded_topics]
+    if not available_topics:
+        available_topics = TOPICS
+    return random.choice(available_topics), random.choice(FOCUS_SKILLS)

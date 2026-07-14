@@ -16,10 +16,10 @@ load_dotenv(ROOT / ".env")
 
 from src.coach import coach_transcript, has_openai, transcribe_audio
 from src.history import make_history_entry
-from src.topics import FocusSkill, pick_practice
+from src.topics import TOPICS, FocusSkill, pick_practice
 
 st.set_page_config(
-    page_title="Elocution Coach By Grace",
+    page_title="Elocution Coach by Grace",
     page_icon="🎙️",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -90,10 +90,15 @@ div[data-testid="stMetricValue"] {
 
 
 def init_state() -> None:
+    if "seen_topics" not in st.session_state:
+        st.session_state.seen_topics = []
     if "topic" not in st.session_state:
-        topic, skill = pick_practice()
+        topic, skill = pick_practice(set(st.session_state.seen_topics))
         st.session_state.topic = topic
         st.session_state.skill = skill
+        st.session_state.seen_topics.append(topic)
+    elif st.session_state.topic not in st.session_state.seen_topics:
+        st.session_state.seen_topics.append(st.session_state.topic)
     if "history" not in st.session_state:
         st.session_state.history = []
     if "last_result" not in st.session_state:
@@ -105,9 +110,12 @@ def init_state() -> None:
 
 
 def new_practice() -> None:
-    topic, skill = pick_practice()
+    if len(st.session_state.seen_topics) >= len(TOPICS):
+        st.session_state.seen_topics = []
+    topic, skill = pick_practice(set(st.session_state.seen_topics))
     st.session_state.topic = topic
     st.session_state.skill = skill
+    st.session_state.seen_topics.append(topic)
     st.session_state.last_result = None
     st.session_state.transcript = ""
     st.session_state.practice_id += 1
@@ -115,7 +123,7 @@ def new_practice() -> None:
 
 def render_header() -> None:
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-    st.markdown('<div class="hero-brand">Elocution Coach</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-brand">Elocution Coach by Grace</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="hero-sub">Practise articulate English — one topic, one skill, honest feedback.</div>',
         unsafe_allow_html=True,
