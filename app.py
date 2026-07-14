@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 load_dotenv(ROOT / ".env")
 
 from src.coach import coach_transcript, has_openai, transcribe_audio
-from src.history import make_history_entry
+from src.history import DIMENSION_LABELS, build_session_summary, make_history_entry
 from src.topics import TOPICS, FocusSkill, pick_practice
 
 st.set_page_config(
@@ -107,6 +107,8 @@ def init_state() -> None:
         st.session_state.transcript = ""
     if "practice_id" not in st.session_state:
         st.session_state.practice_id = 0
+    if "session_summary" not in st.session_state:
+        st.session_state.session_summary = None
 
 
 def new_practice() -> None:
@@ -119,6 +121,14 @@ def new_practice() -> None:
     st.session_state.last_result = None
     st.session_state.transcript = ""
     st.session_state.practice_id += 1
+
+
+def start_new_session() -> None:
+    """Clear the completed session and prepare a fresh practice round."""
+    st.session_state.history = []
+    st.session_state.session_summary = None
+    st.session_state.seen_topics = []
+    new_practice()
 
 
 def render_header() -> None:
@@ -190,6 +200,45 @@ def render_result(result) -> None:
                 st.write(f"· {note}")
 
 
+def render_session_summary(summary: dict) -> None:
+    """Display an aggregate review of all practices in the session."""
+    st.markdown("### Session assessment")
+    rounds_col, average_col = st.columns(2)
+    rounds_col.metric("Topics completed", summary["rounds"])
+    average_col.metric("Average score", f"{summary['average_score']:.1f}/10")
+    st.write(summary["assessment"])
+
+    dimension_averages = summary["dimension_averages"]
+    if dimension_averages:
+        st.markdown("#### Average score breakdown")
+        columns = st.columns(len(dimension_averages))
+        for column, (key, score) in zip(columns, dimension_averages.items()):
+            column.metric(DIMENSION_LABELS[key], f"{score:.1f}")
+
+    strongest = summary["strongest"]
+    priority = summary["priority"]
+    if strongest and priority:
+        st.success(
+            f"**Strongest area:** {strongest['label']} "
+            f"({strongest['score']:.1f}/10)"
+        )
+        st.warning(
+            f"**Main priority:** {priority['label']} "
+            f"({priority['score']:.1f}/10)"
+        )
+
+    st.markdown("#### Areas for improvement")
+    areas = summary["improvement_areas"]
+    if areas:
+        for area in areas:
+            st.markdown(f"- {area}")
+    else:
+        st.markdown("- Keep making each message clear, structured, and audience-focused.")
+
+    st.markdown("#### Key take-home")
+    st.info(summary["take_home"])
+
+
 def main() -> None:
     init_state()
     render_header()
@@ -257,7 +306,7 @@ def main() -> None:
                 0,
                 make_history_entry(topic, skill, result, transcript),
             )
-            st.session_state.history = st.session_state.history[:12]
+            st.session_state.session_summary = None
 
     if st.session_state.transcript:
         with st.expander("Transcript", expanded=False):
@@ -273,6 +322,22 @@ def main() -> None:
                 f"**{entry['overall']}/10** · {entry['skill']} · {entry['time']}  \n"
                 f"{entry['topic']}"
             )
+
+        if st.session_state.session_summary is None:
+            if st.button("End session", use_container_width=True):
+                st.session_state.session_summary = build_session_summary(
+                    st.session_state.history
+                )
+                st.rerun()
+        else:
+            render_session_summary(st.session_state.session_summary)
+            if st.button(
+                "Start new session",
+                type="primary",
+                use_container_width=True,
+            ):
+                start_new_session()
+                st.rerun()
 
 
 if __name__ == "__main__":
